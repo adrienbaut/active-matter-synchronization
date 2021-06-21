@@ -11,7 +11,7 @@ class AMSModel(Model):
     MODEL_TYPES = ('isolated', 'mean field', 'overlapping')
     AGENTS_CONFIGURATIONS = ('square', 'random', 'line') 
     
-    def __init__(self, x_max, y_max, max_steps, model_type, initial_agents, initial_states, agents_parameters = {'preference' : 0, 'z' : 2/3}):
+    def __init__(self, x_max, y_max, max_steps, model_type, initial_agents, initial_states, agents_parameters = {'preference' : 0, 'z' : 2/3}, seed = None):
         """
         Args:
             Space is continuous so x_max and y_max can be float
@@ -35,6 +35,7 @@ class AMSModel(Model):
         self.configuration = initial_states[0]['configuration']
         self.frequency = initial_states[0]['frequency']
         self.N = initial_agents
+        self.T = initial_states[0]['T'] # characteristic time before trying to update probabilities
         
         # Placement of agents
         for i in range(initial_agents):
@@ -45,8 +46,8 @@ class AMSModel(Model):
                 agent.position = (i / initial_agents * self.x_max, self.y_max / 2)
                 self.grid.place_agent(agent, agent.position)
             elif self.configuration == 'random':
-                agent.position = (np.random.normal(self.x_max/2, self.x_max/10),\
-                                 np.random.normal(self.y_max/2, self.y_max/10))
+                agent.position = (self.random.gauss(self.x_max/2, self.x_max/10),\
+                                 self.random.gauss(self.y_max/2, self.y_max/10))
                 self.grid.place_agent(agent, agent.position)
             else:
                 if initial_agents != 4:
