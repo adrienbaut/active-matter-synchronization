@@ -22,7 +22,8 @@ class AMSModel(Model):
             the randomness on the radius, the configuration of the agents and the fluctuation for the dynamics
         """
         assert model_type in AMSModel.MODEL_TYPES,\
-        "model_types should be either \"isolated\", \"mean field\" or \"overlapping\" "
+        " model_types should be either \"isolated\", \"mean field\" or \"overlapping\" "
+
 
         
         super().__init__()
@@ -32,10 +33,12 @@ class AMSModel(Model):
         self.max_steps = max_steps
         self.model_type = model_type
         self.grid = ContinuousSpace(x_max=x_max, y_max=y_max, torus=True)
+        self.initial_states = initial_states
         self.configuration = initial_states[0]['configuration']
         self.frequency = initial_states[0]['frequency']
         self.N = initial_agents
         self.T = initial_states[0]['T'] # characteristic time before trying to update probabilities
+        
         
         # Placement of agents
         for i in range(initial_agents):
@@ -62,22 +65,23 @@ class AMSModel(Model):
             
         for agent in self.schedule.agents:
             if self.model_type == 'isolated':
-                agent.set_radius(.1) # change position rather than radius for fixed position ? No need because isolated means no interaction with others
+                agent.set_A(1)
             elif self.model_type == 'mean field':
-                agent.set_radius(np.sqrt(((self.x_max)/2)**2 + ((self.y_max)/2)**2))
+                agent.set_A(np.pi * (self.x_max**2 + self.y_max**2))
             else:
                 agent.neighbours = self.get_neighbours(agent) 
                 self.overlap(agent)
                 
-        # Initialisation of rho for the agents
-        self.computation_rho()
-        for agent in self.schedule.agents:
-            agent.update_transition_probability()
            
         # Setting the correct frequency of agents in state 1
         new_pref = self.random_frequency()
         for i in range(initial_agents):
-            self.schedule.agents[i].preference = new_pref[i]            
+            self.schedule.agents[i].preference = new_pref[i] 
+            
+        # Initialisation of rho for the agents
+        self.computation_rho()
+        for agent in self.schedule.agents:
+            agent.update_transition_probability()
 
         # To collect the data        
         self.datacollector = DataCollector(
@@ -87,7 +91,11 @@ class AMSModel(Model):
                           'Preferences' : lambda model : model.get_preferences(),
                           'Rho' : lambda model : model.get_rho(),
                           'Transition probabilities' : lambda model : model.get_transition_probabilities(),
-                          'Positions' : lambda model : model.get_positions()}) # position not needed for final datacollector
+                          'Total x' : lambda model: sum(model.get_x()),
+                          'Total y' : lambda model: sum(model.get_y()),
+                          'Positions' : lambda model : model.get_positions()}) 
+        
+
         
     # For setting the pref randomly according to input frequency 
     def random_frequency(self):
@@ -143,7 +151,7 @@ class AMSModel(Model):
                 area.append((alpha - np.sin(alpha)*np.cos(alpha))*R**2 + (beta - np.sin(beta)*np.cos(beta))* r**2)                
         agent.overlap.extend(area)
                 
-    # Computation of rho for the different model types
+    # Computation of rho for the different model types and adjusts x and y for mean field
     def computation_rho(self):
         if self.model_type == 'isolated':
             for agent in self.schedule.agents:
@@ -158,7 +166,7 @@ class AMSModel(Model):
             for agent in self.schedule.agents:
                 overlap_density = 0
                 for j in range(len(agent.neighbours)):
-                    overlap_density += agent.neighbours[j].rho * agent.overlap[j] # problem for computing: rho^i depends on the other rhos that are not defined. Took isolated value as initial value for rho^i
+                    overlap_density += agent.neighbours[j].rho * agent.overlap[j] # Took isolated value as initial value for rho^i
                 agent.rho = 1/agent.A * (overlap_density + agent.x)
         
     

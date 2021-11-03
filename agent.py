@@ -12,8 +12,26 @@ class AMSAgent(Agent):
                 Preference of the agent : 0 or 1,
                 Radius of the circle of influence : R, fixed once initialised
                 Position of the agent : needs to be a tuple
+                'realism' is a boolean that gives the possibility to have a randomised update time
+                beta gives the randomness of the system
                 Other constants for computations of rho and S
         """
+         # CONSTANTS       
+        self.z = initial_state['z']
+        self.b = initial_state['b'] # b is a 2x2 matrix
+        self.beta = initial_state['beta']        
+        self.rho_0 = initial_state['rho_0']
+        self.rho_1 = initial_state['rho_1']
+        self.dt = initial_state['dt']
+        self.realism = initial_state['realism']
+
+
+        self.Q = initial_state['Q']
+        self.S_factor = initial_state['S_factor']
+        self.a = initial_state['a']
+        self.gamma_e = initial_state['gamma_e']
+        self.y_thr = initial_state['y_thr']
+        
         super().__init__(unique_id=unique_id, model=model)            
         self.x = initial_state['x']
         self.y = initial_state['y']
@@ -22,7 +40,7 @@ class AMSAgent(Agent):
         
         self.preference = initial_state['preference']
         self.radius = initial_state['radius']
-        self.A = 4 * np.pi * self.radius**2
+        self.A = np.pi * self.radius**2
         self.position = ()
         
         self.rho = self.x / self.A #needed for computing of overlapping
@@ -31,27 +49,27 @@ class AMSAgent(Agent):
         self.neighbours = []
         self.overlap = []
         
-         # CONSTANTS       
-        self.z = initial_state['z']
-        self.b = initial_state['b'] # b is a 2x2 matrix
-        self.beta = initial_state['beta']        
-        self.rho_0 = initial_state['rho_0']
-        self.rho_1 = initial_state['rho_1']
-        self.dt = initial_state['dt']
-        self.p = 0.9 # probability to try to change state after characteristic time T
-
-        self.Q = initial_state['Q']
-        self.S_factor = initial_state['S_factor']
-        self.a = initial_state['a']
-        self.gamma_e = initial_state['gamma_e']
-        self.y_thr = initial_state['y_thr']
+        if self.realism:            
+            self.T_c = int(self.random.gauss(self.model.T, 50)) #for more realistic results
+        else:
+            self.T_c = self.model.T
         
-        
-    # Setter for radius and ajusts A
-    def set_radius(self, r):
-        self.radius = r
-        self.A = 4 * np.pi * r**2
+    # Setters
+    def set_A(self, A):
+        self.A = A
     
+    def set_x(self, x):
+        self.x = x
+    
+    def set_y(self, y):
+        self.y = y
+        
+    # If fluctuations included
+    def compute_S(self):
+        return self.S_factor / (1 + np.exp(2 * self.beta * (self.y - self.y_thr)))
+    
+    
+    # Updates
     def update_transition_probability(self):
         if self.preference == 0:
             self.transition_probability = np.exp(self.beta * (self.rho-self.rho_1)) / \
@@ -60,8 +78,6 @@ class AMSAgent(Agent):
             self.transition_probability = np.exp(-self.beta * (self.rho-self.rho_0)) / \
             (np.exp(self.beta * (self.rho-self.rho_1)) + np.exp(-self.beta * (self.rho-self.rho_0)))
                 
-    def compute_S(self):
-        return self.S_factor / (1 + np.exp(2 * self.beta * (self.y - self.y_thr)))
     
     
     def update_state(self):
@@ -119,6 +135,8 @@ class AMSAgent(Agent):
     def step(self):
         self._next_x = self.x
         self._next_y = self.y
+        
+        # Computation of x and y using Euler's method 
         """
         # Setting z according to the preference of the agent
         if self.preference == 0:
@@ -128,7 +146,7 @@ class AMSAgent(Agent):
         else:
             raise Exception('Preference needs to be 0 or 1')
   
-        # Computation of x and y using Euler's method 
+        
         if self.fluctuation == True:
             dx = self.Q * new_z * self._next_x \
                  - self.b[0][0] * self._next_x ** 2 \
@@ -164,9 +182,9 @@ class AMSAgent(Agent):
         self.x = self._next_x
         self.y = self._next_y
         self.model.computation_rho()
-        
+
         # Update state 
-        if self.model.schedule.steps % self.model.T == 0:
+        if self.model.schedule.steps % self.T_c == 0:
             self.update_state()
             
 
