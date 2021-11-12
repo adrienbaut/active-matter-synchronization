@@ -12,7 +12,7 @@ class AMSAgent(Agent):
                 Preference of the agent : 0 or 1,
                 Radius of the circle of influence : R, fixed once initialised
                 Position of the agent : needs to be a tuple
-                'realism' is a boolean that gives the possibility to have a randomised update time
+                'rnd_update' is a boolean that gives the possibility to have a randomised update time
                 beta gives the randomness of the system
                 Other constants for computations of rho and S
         """
@@ -23,7 +23,7 @@ class AMSAgent(Agent):
         self.rho_0 = initial_state['rho_0']
         self.rho_1 = initial_state['rho_1']
         self.dt = initial_state['dt']
-        self.realism = initial_state['realism']
+        self.rnd_update = initial_state['rnd_update']
 
 
         self.Q = initial_state['Q']
@@ -49,7 +49,7 @@ class AMSAgent(Agent):
         self.neighbours = []
         self.overlap = []
         
-        if self.realism:            
+        if self.rnd_update:            
             self.T_c = int(self.random.gauss(self.model.T, 50)) #for more realistic results
         else:
             self.T_c = self.model.T
